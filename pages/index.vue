@@ -8,11 +8,7 @@
       @dragover.prevent
       @drop.prevent="dropFile"
     >
-      <div
-        ref="videoContainer"
-        class="relative flex flex-1 flex-shrink items-center justify-center"
-        :class="videoClasses"
-      >
+      <div class="relative flex flex-1 flex-shrink items-center justify-center">
         <div class="aspect-video max-h-full max-w-full overflow-hidden">
           <video
             ref="video"
@@ -124,7 +120,6 @@
 <script lang="ts" setup>
 const root = ref<HTMLElement>();
 const video = ref<HTMLVideoElement>();
-const videoContainer = ref<HTMLElement>();
 const c1 = ref<HTMLCanvasElement>();
 const c2 = ref<HTMLCanvasElement>();
 const c3 = ref<HTMLCanvasElement>();
@@ -132,7 +127,6 @@ const c4 = ref<HTMLCanvasElement>();
 const c5 = ref<HTMLCanvasElement>();
 const sideMenu = ref<HTMLElement>();
 
-const vcSize = useElementSize(videoContainer);
 const sideMenuSize = useElementSize(sideMenu);
 const { playing } = useMediaControls(video);
 const { isFullscreen, toggle } = useFullscreen(root);
@@ -170,18 +164,14 @@ const idleTimeout = useTimeoutFn(
   () => {
     idle.value = true;
   },
-  2000,
+  3000,
   { immediate: false }
 );
 
 const WIDESCREEN_RATIO = 16 / 9;
-const videoClasses = computed(() => {
-  const ratio = vcSize.width.value / vcSize.height.value;
-  return ratio > WIDESCREEN_RATIO ? 'w-initial' : 'w-full';
-});
 const canvasClasses = computed(() => {
   const ratio = sideMenuSize.width.value / (sideMenuSize.height.value / 5);
-  return ratio >= WIDESCREEN_RATIO ? 'w-initial' : 'w-full';
+  return ratio >= WIDESCREEN_RATIO ? 'h-full w-initial' : 'w-full';
 });
 
 const idleCheck = () => {
