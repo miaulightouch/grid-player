@@ -215,6 +215,11 @@ const drawCameras = () => {
   });
 };
 
+watch(volume, (v) => {
+  if (!video.value) return;
+  video.value.volume = +v / 100;
+});
+
 onMounted(() => {
   if (!video.value) return;
   video.value.volume = +volume.value / 100;
