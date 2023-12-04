@@ -22,7 +22,6 @@
             'opacity-0 pointer-events-none': idle,
             'opacity-100': !idle,
           }"
-          @pointermove="idleCheck"
         >
           <span
             class="aspect-square h-full w-initial cursor-pointer"
@@ -186,11 +185,12 @@ const drawCameras = (now?: number) => {
   if (!playing.value) return;
   if (!sideMenuOpen.value && now !== -1) return;
   if (!video.value) return;
+  if (!cam.value?.length) return;
   const { videoHeight, videoWidth } = video.value;
   const [scaleX, scaleY] = layout;
   const itemWidth = videoWidth / scaleX;
   const itemHeight = videoHeight / scaleY;
-  cam.value?.forEach((c, i) => {
+  cam.value.forEach((c, i) => {
     if (!video.value) return;
     if (!c) return;
     const ctx = c.getContext('2d');
