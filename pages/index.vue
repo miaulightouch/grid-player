@@ -9,6 +9,30 @@
       @drop.prevent="dropFile"
     >
       <div class="relative flex flex-1 flex-shrink items-center justify-center">
+        <div
+          v-show="waiting"
+          class="absolute left-1/2 top-1/2 z-1 transform-gpu text-white -translate-1/2"
+        >
+          <div class="i-ri-loader-5-fill h-40 w-40 animate-spin" />
+        </div>
+
+        <div
+          v-show="!init"
+          id="drop-area"
+          class="absolute left-1/2 top-1/2 z-1 flex flex-col transform-gpu cursor-pointer items-center justify-center border-gray-700/60 rounded-2 bg-gray-100 p-4 -translate-1/2 space-y-4"
+        >
+          <input
+            id="load-file"
+            type="file"
+            name="load-file"
+            class="hidden"
+            accept="video/*"
+            @change="loadFile"
+          />
+          <h1 class="text-center text-2xl">Drop file here</h1>
+          <div class="i-ri-file-upload-fill aspect-square h-20 w-20"></div>
+        </div>
+
         <div class="mb-[1px] aspect-video max-h-full max-w-full overflow-hidden">
           <video
             ref="video"
@@ -16,6 +40,7 @@
             :style="videoStyles"
           />
         </div>
+
         <div
           class="absolute bottom-0 left-0 h-12 w-full flex items-center from-gray-900/70 to-transparent bg-gradient-to-t p-2 text-white transition-opacity space-x-4"
           :class="{
@@ -48,10 +73,23 @@
             max="1"
             step="any"
           />
-          <div class="flex-1" />
+          <div class="h-full flex flex-1 items-center justify-center">
+            <span
+              class="i-ri-vidicon-fill aspect-square h-full w-initial cursor-pointer"
+              @click="(bottomMenuOpen = !bottomMenuOpen), (sideMenuOpen = false)"
+            />
+            <span
+              class="aspect-square h-full w-initial cursor-pointer"
+              :class="{
+                'i-ri-arrow-down-double-fill': bottomMenuOpen,
+                'i-ri-arrow-up-double-fill': !bottomMenuOpen,
+              }"
+              @click="(bottomMenuOpen = !bottomMenuOpen), (sideMenuOpen = false)"
+            />
+          </div>
           <span
             class="i-ri-vidicon-fill aspect-square h-full w-initial cursor-pointer"
-            @click="sideMenuOpen = !sideMenuOpen"
+            @click="(sideMenuOpen = !sideMenuOpen), (bottomMenuOpen = false)"
           />
           <span
             class="aspect-square h-full w-initial cursor-pointer"
@@ -61,15 +99,38 @@
             }"
             @click="toggle"
           />
+
+          <input
+            id="progress"
+            v-model="progress"
+            type="range"
+            name="progress"
+            step="any"
+            class="absolute left-0 top-0 h-2 w-full transform-gpu cursor-pointer appearance-none bg-gray-300/60 bg-transparent from-yellow-400 to-gray-300/60 bg-gradient-to-r outline-none m-0! -translate-y-full"
+            :style="{
+              '--un-gradient-from-position': `${progress}%`,
+              '--un-gradient-to-position': `${progress}%`,
+            }"
+          />
         </div>
       </div>
+
       <div
-        class="h-full flex-shrink-0 from-gray-900/70 to-black bg-gradient-to-l transition-all duration-100"
-        :class="{ 'w-15%': sideMenuOpen, 'w-0': !sideMenuOpen }"
+        class="flex-shrink-0"
+        :class="{
+          'h-full w-15% from-gray-900/70 to-black bg-gradient-to-l': sideMenuOpen,
+          'w-0': !sideMenuOpen && !bottomMenuOpen,
+          'absolute bottom-14 w-[50%] left-1/2 transform-gpu -translate-x-1/2 bg-gray-900/90 rounded-2':
+            bottomMenuOpen,
+        }"
       >
         <div
           ref="sideMenu"
-          class="grid grid-rows-5 h-full w-15% w-full items-center justify-center p-2 text-white"
+          class="grid h-full w-full items-center justify-center p-2 text-white"
+          :class="{
+            'grid-rows-5': sideMenuOpen,
+            'grid-cols-5 gap-2': bottomMenuOpen,
+          }"
         >
           <div
             v-for="index in presets.length"
@@ -99,7 +160,7 @@ const sideMenu = ref<HTMLElement>();
 const cam = ref<HTMLCanvasElement[]>([]);
 
 const sideMenuSize = useElementSize(sideMenu);
-const { playing, volume } = useMediaControls(video);
+const { playing, volume, currentTime, duration, waiting } = useMediaControls(video);
 const { isFullscreen, toggle } = useFullscreen(root);
 
 interface VideoOptions {
@@ -131,11 +192,21 @@ const videoStyles = computed(() => {
     --un-translate-y: ${y * -100}%;`;
 });
 
+const init = ref(false);
 const idle = ref(true);
 const angle = ref(5);
 const savedVolume = useLocalStorage('volume', 0.5);
 const sideMenuOpen = ref(false);
-
+const bottomMenuOpen = ref(false);
+const progressRaw = ref(0);
+const progress = computed({
+  get: () => (waiting.value ? progressRaw.value : (currentTime.value / duration.value) * 100 || 0),
+  set: (v) => {
+    if (!video.value) return;
+    progressRaw.value = v;
+    video.value.currentTime = (v / 100) * duration.value;
+  },
+});
 const idleTimeout = useTimeoutFn(
   () => {
     idle.value = true;
@@ -155,6 +226,15 @@ const idleCheck = useThrottleFn(() => {
   idleTimeout.start();
 });
 
+const loadFile = (ev: Event) => {
+  if (video.value?.src) URL.revokeObjectURL(video.value.src);
+  const file = (ev.target as HTMLInputElement).files?.[0];
+  if (file?.type.startsWith('video')) {
+    video.value!.src = URL.createObjectURL(file);
+    init.value = true;
+  }
+};
+
 const dropFile = (ev: DragEvent) => {
   ev.stopPropagation();
   if (video.value?.src) URL.revokeObjectURL(video.value.src);
@@ -164,6 +244,7 @@ const dropFile = (ev: DragEvent) => {
       const file = item.getAsFile();
       if (file?.type.startsWith('video')) {
         video.value!.src = URL.createObjectURL(file);
+        init.value = true;
         return true;
       }
     });
@@ -171,6 +252,7 @@ const dropFile = (ev: DragEvent) => {
     [...ev.dataTransfer.files].some((file) => {
       if (file.type.startsWith('video')) {
         video.value!.src = URL.createObjectURL(file);
+        init.value = true;
         return true;
       }
     });
@@ -183,7 +265,7 @@ const dropFile = (ev: DragEvent) => {
  */
 const drawCameras = (now?: number) => {
   if (!playing.value) return;
-  if (!sideMenuOpen.value && now !== -1) return;
+  if (!sideMenuOpen.value && !bottomMenuOpen.value && now !== -1) return;
   if (!video.value) return;
   if (!cam.value?.length) return;
   const { videoHeight, videoWidth } = video.value;
@@ -209,6 +291,9 @@ watch(volume, (v) => {
 
 onMounted(() => {
   if (!video.value) return;
+  root.value!.querySelector('#drop-area')?.addEventListener('click', () => {
+    root.value!.querySelector<HTMLInputElement>('#load-file')?.click();
+  });
   volume.value = savedVolume.value;
   video.value.addEventListener('loadedmetadata', async () => {
     await video.value!.play();
@@ -230,16 +315,9 @@ onMounted(() => {
 });
 </script>
 
-<style lang="scss" scoped>
-.cam-label {
-  @apply absolute left-1 top-0 font-700;
-  text-shadow: #fff 1px 0 10px;
-}
-</style>
-
 <style lang="scss">
 #volume {
-  @apply cursor-pointer appearance-none;
+  @apply cursor-pointer appearance-none outline-none bg-transparent;
   &::-webkit-slider-runnable-track {
     @apply bg-current h-1;
   }
@@ -248,6 +326,15 @@ onMounted(() => {
   }
   &::-webkit-slider-thumb {
     @apply appearance-none bg-current w-3 h-3 -mt-1 rounded-full;
+  }
+}
+#progress {
+  &::-webkit-slider-thumb {
+    @apply appearance-none bg-yellow-400 w-3 h-3 rounded-full;
+    &:hover,
+    &:active {
+      @apply w-4 h-4;
+    }
   }
 }
 </style>
