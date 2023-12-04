@@ -7,6 +7,7 @@
       @pointerleave="idle = true"
       @dragover.prevent
       @drop.prevent="dropFile"
+      @click="playing = init && !playing"
     >
       <div class="relative flex flex-1 flex-shrink items-center justify-center">
         <div
@@ -47,6 +48,7 @@
             'opacity-0 pointer-events-none': idle,
             'opacity-100': !idle,
           }"
+          @click.stop
         >
           <span
             class="aspect-square h-full w-initial cursor-pointer"
@@ -125,6 +127,7 @@
           'bottom-0': bottomMenuOpen && idle,
           'bottom-14': bottomMenuOpen && !idle,
         }"
+        @click.stop
       >
         <div
           ref="sideMenu"
