@@ -120,8 +120,10 @@
         :class="{
           'h-full w-15% from-gray-900/70 to-black bg-gradient-to-l': sideMenuOpen,
           'w-0': !sideMenuOpen && !bottomMenuOpen,
-          'absolute bottom-14 w-[50%] left-1/2 transform-gpu -translate-x-1/2 bg-gray-900/90 rounded-2':
+          'absolute w-[50%] left-1/2 transform-gpu -translate-x-1/2 bg-gray-900/90 rounded-2':
             bottomMenuOpen,
+          'bottom-0': bottomMenuOpen && idle,
+          'bottom-14': bottomMenuOpen && !idle,
         }"
       >
         <div
