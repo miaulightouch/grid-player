@@ -9,7 +9,7 @@
       @drop.prevent="dropFile"
     >
       <div class="relative flex flex-1 flex-shrink items-center justify-center">
-        <div class="aspect-video max-h-full max-w-full overflow-hidden">
+        <div class="mb-[1px] aspect-video max-h-full max-w-full overflow-hidden">
           <video
             ref="video"
             class="pointer-events-none origin-left-top transform-gpu"
