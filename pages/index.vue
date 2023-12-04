@@ -17,7 +17,7 @@
           />
         </div>
         <div
-          class="absolute bottom-0 left-0 h-12 w-full flex items-center from-gray-800/70 to-transparent bg-gradient-to-t p-2 text-white transition-opacity space-x-4"
+          class="absolute bottom-0 left-0 h-12 w-full flex items-center from-gray-900/70 to-transparent bg-gradient-to-t p-2 text-white transition-opacity space-x-4"
           :class="{
             'opacity-0 pointer-events-none': idle,
             'opacity-100': !idle,
@@ -46,7 +46,8 @@
             type="range"
             name="volume"
             min="0"
-            max="100"
+            max="1"
+            step="any"
           />
           <div class="flex-1" />
           <span
@@ -64,51 +65,26 @@
         </div>
       </div>
       <div
-        class="h-full flex-shrink-0 from-black to-gray-900 bg-gradient-to-l"
+        class="h-full flex-shrink-0 from-gray-900/70 to-black bg-gradient-to-l transition-all duration-100"
         :class="{ 'w-15%': sideMenuOpen, 'w-0': !sideMenuOpen }"
       >
         <div
           ref="sideMenu"
           class="grid grid-rows-5 h-full w-15% w-full items-center justify-center p-2 text-white"
         >
-          <div class="relative aspect-video cursor-pointer" :class="canvasClasses">
+          <div
+            v-for="index in presets.length"
+            :key="index"
+            class="relative aspect-video cursor-pointer"
+            :class="canvasClasses"
+          >
             <canvas
-              ref="c1"
+              ref="cam"
+              width="400"
+              height="225"
               class="h-full w-full border-2 border-gray-700 rounded-2"
-              :class="{ 'border-yellow': angle === 1 }"
-              @click="angle = 1"
-            />
-          </div>
-          <div class="relative aspect-video cursor-pointer" :class="canvasClasses">
-            <canvas
-              ref="c2"
-              class="h-full w-full border-2 border-gray-700 rounded-2"
-              :class="{ 'border-yellow': angle === 2 }"
-              @click="angle = 2"
-            />
-          </div>
-          <div class="relative aspect-video cursor-pointer" :class="canvasClasses">
-            <canvas
-              ref="c3"
-              class="h-full w-full border-2 border-gray-700 rounded-2"
-              :class="{ 'border-yellow': angle === 3 }"
-              @click="angle = 3"
-            />
-          </div>
-          <div class="relative aspect-video cursor-pointer" :class="canvasClasses">
-            <canvas
-              ref="c4"
-              class="h-full w-full border-2 border-gray-700 rounded-2"
-              :class="{ 'border-yellow': angle === 4 }"
-              @click="angle = 4"
-            />
-          </div>
-          <div class="relative aspect-video cursor-pointer" :class="canvasClasses">
-            <canvas
-              ref="c5"
-              class="h-full w-full border-2 border-gray-700 rounded-2"
-              :class="{ 'border-yellow': angle === 5 }"
-              @click="angle = 5"
+              :class="{ 'border-yellow': angle === index }"
+              @click="angle = index"
             />
           </div>
         </div>
@@ -120,44 +96,45 @@
 <script lang="ts" setup>
 const root = ref<HTMLElement>();
 const video = ref<HTMLVideoElement>();
-const c1 = ref<HTMLCanvasElement>();
-const c2 = ref<HTMLCanvasElement>();
-const c3 = ref<HTMLCanvasElement>();
-const c4 = ref<HTMLCanvasElement>();
-const c5 = ref<HTMLCanvasElement>();
 const sideMenu = ref<HTMLElement>();
+const cam = ref<HTMLCanvasElement[]>([]);
 
 const sideMenuSize = useElementSize(sideMenu);
-const { playing } = useMediaControls(video);
+const { playing, volume } = useMediaControls(video);
 const { isFullscreen, toggle } = useFullscreen(root);
 
-const presets = [
-  [0, 0, 1920, 1080],
-  [1920, 0, 1920, 1080],
-  [0, 1080, 1920, 1080],
-  [1920, 1080, 1920, 1080],
-  [0, 0, 3840, 2160],
+interface VideoOptions {
+  noCut?: boolean;
+}
+
+type Preset = [number, number, VideoOptions?];
+
+const layout = [2, 2];
+const presets: Preset[] = [
+  [0, 0],
+  [1, 0],
+  [0, 1],
+  [1, 1],
+  [0, 0, { noCut: true }],
 ];
 
 const videoStyles = computed(() => {
   if (!video.value) return '';
-  const { videoHeight, videoWidth } = video.value;
-  const [x, y, w, h] = presets[angle.value - 1];
-  if (videoHeight === h && videoWidth === w) return '';
-  const scale = videoHeight / h;
-  const posX = x / (videoWidth || 1);
-  const posY = y / (videoHeight || 1);
+  const [x, y, options] = presets[angle.value - 1];
+  const [scaleX, scaleY] = layout;
+
+  if (options?.noCut) return '';
 
   return `
-    --un-scale-x: ${scale || 1};
-    --un-scale-y: ${scale || 1};
-    --un-translate-x: ${-posX * scale * 100}%;
-    --un-translate-y: ${-posY * scale * 100}%;`;
+    --un-scale-x: ${scaleX};
+    --un-scale-y: ${scaleY};
+    --un-translate-x: ${x * -100}%;
+    --un-translate-y: ${y * -100}%;`;
 });
 
 const idle = ref(true);
-const volume = useLocalStorage('volume', '50');
 const angle = ref(5);
+const savedVolume = useLocalStorage('volume', 0.5);
 const sideMenuOpen = ref(false);
 
 const idleTimeout = useTimeoutFn(
@@ -174,10 +151,10 @@ const canvasClasses = computed(() => {
   return ratio >= WIDESCREEN_RATIO ? 'h-full w-initial' : 'w-full';
 });
 
-const idleCheck = () => {
+const idleCheck = useThrottleFn(() => {
   idle.value = false;
   idleTimeout.start();
-};
+});
 
 const dropFile = (ev: DragEvent) => {
   ev.stopPropagation();
@@ -201,44 +178,54 @@ const dropFile = (ev: DragEvent) => {
   }
 };
 
-const drawCameras = () => {
+/**
+ * 繪製畫面
+ * @param now 如果是-1，表示强制刷新
+ */
+const drawCameras = (now?: number) => {
   if (!playing.value) return;
-  if (!sideMenuOpen.value) return;
-  [c1, c2, c3, c4, c5].forEach((c, i) => {
-    const ctx = c.value!.getContext('2d');
+  if (!sideMenuOpen.value && now !== -1) return;
+  if (!video.value) return;
+  const { videoHeight, videoWidth } = video.value;
+  const [scaleX, scaleY] = layout;
+  const itemWidth = videoWidth / scaleX;
+  const itemHeight = videoHeight / scaleY;
+  cam.value?.forEach((c, i) => {
+    if (!video.value) return;
+    if (!c) return;
+    const ctx = c.getContext('2d');
     if (!ctx) return;
-    const [x, y, w, h] = presets[i];
-    const { width, height } = c.value!.getBoundingClientRect();
-    c.value!.width = width;
-    c.value!.height = height;
-    ctx.drawImage(video.value!, x, y, w, h, 0, 0, width, height);
+    const [x, y, options] = presets[i];
+    const w = options?.noCut ? videoWidth : itemWidth;
+    const h = options?.noCut ? videoHeight : itemHeight;
+    ctx.drawImage(video.value, x * itemWidth, y * itemHeight, w, h, 0, 0, c.width, c.height);
   });
 };
 
 watch(volume, (v) => {
   if (!video.value) return;
-  video.value.volume = +v / 100;
+  savedVolume.value = v;
 });
 
 onMounted(() => {
   if (!video.value) return;
-  video.value.volume = +volume.value / 100;
-  video.value.addEventListener('loadedmetadata', () => {
-    video.value!.play();
+  volume.value = savedVolume.value;
+  video.value.addEventListener('loadedmetadata', async () => {
+    await video.value!.play();
     angle.value = 1;
-    if (video.value?.requestVideoFrameCallback) {
-      const cb = () => {
-        drawCameras();
-        video.value!.requestVideoFrameCallback(cb);
-      };
-      video.value!.requestVideoFrameCallback(cb);
-    } else {
-      const cb = () => {
-        drawCameras();
-        requestAnimationFrame(cb);
-      };
-      requestAnimationFrame(cb);
-    }
+
+    // 強制更新畫面
+    drawCameras(-1);
+
+    // 決定動畫更新方式
+    const callbackFn = video.value?.requestVideoFrameCallback
+      ? (cb: () => void) => video.value!.requestVideoFrameCallback(cb)
+      : requestAnimationFrame;
+    const cb = () => {
+      drawCameras();
+      callbackFn(cb);
+    };
+    cb();
   });
 });
 </script>

@@ -5,5 +5,5 @@
 </template>
 
 <script>
-import '@unocss/reset/tailwind-compat.css'
+import '@unocss/reset/tailwind-compat.css';
 </script>
